@@ -5,11 +5,11 @@
   "homepage": "",
   "author": {
     "name": "梁冬",
-    "email": "aloysious.ld@taobao.com"
+    "email": "aloysiousliang@gmail.com"
   },
   "repository": {
     "type": "git",
-    "url": "git://gitlab.alibaba-inc.com/aloysious.ld/festudy.git"
+    "url": "git://git@github.com:aloysious/grunt-cssimage.git"
   },
   "bugs": {
     "url": ""
