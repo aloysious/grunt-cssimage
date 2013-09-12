@@ -41,7 +41,9 @@ module.exports = function(grunt) {
             optimizationLevel: 7,
             progressive: true,
             pngquant: true,
-			imagePath: './image'
+			imagePath: './image',
+			cleanBeforeTask: true,
+			saveOriginal: false
         });
         var optipngArgs = ['-strip', 'all'];
         var pngquantArgs = ['-'];
@@ -59,6 +61,10 @@ module.exports = function(grunt) {
         
 		grunt.verbose.writeflags(options, 'Options');
 
+		if (options.cleanBeforeTask) {
+			grunt.file.delete(path.resolve(options.imagePath));
+		}
+
 		// Iterate over all specified file groups.
        	grunt.util.async.forEachSeries(this.files, function (f, Pnext) {
 
@@ -73,19 +79,20 @@ module.exports = function(grunt) {
 				rawImageArr = grunt.util._.uniq(content.match(/[^'"\(]*\.(png|jpeg|jpg|gif)/ig));
        			grunt.util.async.forEachLimit(rawImageArr, numCPUs, function (rawImage, next) {
 					var rawPath = rawImage.replace(/['"\(\)]/ig, ''),  // 文件中的图片地址
-						srcPath,                                       // 图片的本地绝对路径
 						minPath;                                       // 压缩后的本地绝对路径
 
 					// 如果不是远程文件，取图片在本地的绝对路径
 					if (!/^(http:\/\/)/i.test(rawPath)) {
-						srcPath = path.resolve(path.dirname(inputSrc), rawPath);
-						minPath = path.resolve(options.imagePath, 'min', path.basename(srcPath));
+						var savedPath = path.resolve(options.imagePath, 'origin', new Date().getTime() + path.extname(rawPath));
+						var srcPath = path.resolve(path.dirname(inputSrc), rawPath);
+						grunt.file.copy(srcPath, savedPath);
+						minPath = path.resolve(options.imagePath, 'min', path.basename(savedPath));
 						imageArr.push({
 							rawPath: rawPath,
 							minPath: minPath
 						});
-                        grunt.log.writeln(chalk.yellow('[local image] ') + srcPath);
-						optimize(srcPath, minPath, next);
+                        grunt.log.writeln(chalk.yellow('[saved local image] ') + srcPath + chalk.green(' → ') + savedPath);
+						optimize(savedPath, minPath, next);
 					
 					// 否则，从远程抓取图片，保存于本地
 					} else {
@@ -94,14 +101,13 @@ module.exports = function(grunt) {
 							grunt.file.mkdir(path.dirname(savedPath));
 							res.pipe(fs.createWriteStream(path.resolve(savedPath)));
 							res.on('end', function() {
-								srcPath = savedPath;
-								minPath = path.resolve(options.imagePath, 'min', path.basename(srcPath));
+								minPath = path.resolve(options.imagePath, 'min', path.basename(savedPath));
 								imageArr.push({
 									rawPath: rawPath,
 									minPath: minPath
 								});
-                        		grunt.log.writeln(chalk.yellow('[remote image] ') + rawPath + chalk.green(' → ') + savedPath);
-								optimize(srcPath, minPath, next);
+                        		grunt.log.writeln(chalk.yellow('[save remote image] ') + rawPath + chalk.green(' → ') + savedPath);
+								optimize(savedPath, minPath, next);
 							});
 						}).on('error', function(e) {
 							grunt.log.writeln(e.message);
@@ -121,9 +127,16 @@ module.exports = function(grunt) {
             if (err) {
                 grunt.warn(err);
             }
-            grunt.log.writeln('Minified ' + this.files.length + ' ' +
+            
+			grunt.log.writeln('Minified ' + this.files.length + ' ' +
                 (this.files.length === 1 ? 'file' : 'files') +
                 chalk.gray(' (saved '  + filesize(totalSaved) + ')'));
+
+			// 是否清空临时保存的压缩前的图片文件
+			if (!options.saveOriginal) {
+				grunt.file.delete(path.resolve(options.imagePath, 'origin'));
+			}
+			
 			done();
 		}.bind(this));
 
@@ -154,7 +167,7 @@ module.exports = function(grunt) {
                 }
 
                 saved = originalSize - fs.statSync(dest).size;
-                totalSaved += saved;
+				totalSaved += saved;
 
                 if (result && (result.stderr.indexOf('already optimized') !== -1 || saved < 10)) {
                     savedMsg = 'already optimized';

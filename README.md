@@ -1,6 +1,6 @@
 # grunt-cssimage
 
-> The best Grunt plugin ever.
+> A plugin that grab images url in CSS files, minify those images, and replace image urls to the minified ones stored in your local disk. It supports both local and remote images grabbing and it can minify .png, .jpg, .jpeg, .gif image files.
 
 ## Getting Started
 This plugin requires Grunt `~0.4.1`
